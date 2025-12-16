@@ -142,22 +142,51 @@ class SQLiteDB:
             return deleted_count
         return 0
     
-    def insert_products(self, products: List[Dict], store: str):
+
+    def insert_products(self, products: list[dict], store: str):
         """
-        Insert multiple products into the database
-        
-        Args:
-            products: List of product dictionaries
-            store: Store name (e.g., 'disco', 'fravega')
+        Inserts or UPDATES a list of products using ON CONFLICT DO UPDATE.
+        Requires the 'store' name as a positional argument (which you are now passing).
         """
         if self.connection and products:
             cursor = self.connection.cursor()
-            cursor.executemany(
-                "INSERT INTO products (product_name, price, image_url, product_url, store) VALUES (?, ?, ?, ?, ?)",
-                [(p['product_name'], p['price'], p['image_url'], p['product_url'], store) for p in products]
-            )
+            
+            # 1. Define the SQL statement using ON CONFLICT
+            # We assume the table has a UNIQUE constraint on (product_url, store).
+            sql_query = """
+            INSERT INTO products 
+                (product_name, price, image_url, product_url, store, created_at) 
+            VALUES 
+                (?, ?, ?, ?, ?, ?)
+            ON CONFLICT (product_url, store) 
+            DO UPDATE SET
+                price = excluded.price,
+                product_name = excluded.product_name,
+                image_url = excluded.image_url,
+                created_at = excluded.created_at;
+            """
+            
+            # 2. Prepare the data with all six values (including a dynamic timestamp)
+            import time
+            current_time = int(time.time()) # Or use datetime if you prefer
+            
+            data_to_insert = [
+                (
+                    p['product_name'], 
+                    p['price'], 
+                    p['image_url'], 
+                    p['product_url'], 
+                    store, 
+                    current_time  # The created_at is the 6th value
+                ) 
+                for p in products
+            ]
+            
+            # 3. Execute the statement
+            cursor.executemany(sql_query, data_to_insert)
             self.connection.commit()
-            print(f"✓ Inserted {len(products)} products from {store}")
+            
+            print(f"✓ Processed {len(products)} product records (Insert/Update) from {store}")
             return len(products)
         return 0
     

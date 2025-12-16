@@ -50,7 +50,7 @@ def run_single_scraper(store, search_term):
     # Import the appropriate scraper module and run it
     if store == "disco":
         try:
-            from scraper import run_scraper
+            from scraper_disco import run_scraper
             run_scraper(search_term)
         except ImportError:
             print(f"✗ ERROR: Could not import 'run_scraper' from `scraper.py`.")
