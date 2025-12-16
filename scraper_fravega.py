@@ -10,7 +10,7 @@ import sys
 # For simplicity here, we'll use Dict, but good practice is to use TypedDict or dataclasses.
 # Final product keys: product_name, price, image_url, product_url, store
 
-class FravegaScraper:
+class ProductScraper:
     """Web scraper for Fravega.com product data, prioritizing JSON-LD."""
     
     def __init__(self, search_term: str = "freidora", max_products: int = 20):
@@ -293,7 +293,7 @@ def run_scraper(search_term: str = "freidora"):
     # if not db.connect(): ...
     
     try:
-        scraper = FravegaScraper(search_term, max_products=20)
+        scraper = ProductScraper(search_term, max_products=20)
         products, error = scraper.scrape()
         
         if error:

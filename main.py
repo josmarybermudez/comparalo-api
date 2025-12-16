@@ -1,10 +1,14 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from tasks import run_multi_store_scraper_task
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from models import Product, ProductResponse
 from database import db
 import os
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from models import Product, ProductResponse, ScrapeRequest # <-- IMPORT ScrapeRequest
+from tasks import run_multi_store_scraper_task
 
 load_dotenv()
 
@@ -73,47 +77,6 @@ async def get_products():
             detail=f"Failed to retrieve products: {str(e)}"
         )
 
-
-@app.post("/api/v1/scrape")
-async def trigger_scrape():
-    """
-    Manually trigger the scraping process
-    
-    Returns:
-        dict: Status message and count of scraped products
-    """
-    try:
-        from scraper import ProductScraper
-        
-        url = os.getenv("SCRAPE_URL", "https://www.disco.com.ar/bebidas")
-        scraper = ProductScraper(url, max_products=20)
-        
-        # Scrape products
-        products, error = scraper.scrape()
-        
-        if error:
-            raise HTTPException(status_code=500, detail=error)
-        
-        if not products:
-            raise HTTPException(status_code=404, detail="No products found")
-        
-        # db.clear_products()
-        count = db.insert_products(products)
-        
-        return {
-            "message": "Scraping completed successfully",
-            "products_scraped": count
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Scraping failed: {str(e)}"
-        )
-
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
@@ -122,3 +85,27 @@ if __name__ == "__main__":
         port=8000,
         reload=True
     )
+
+
+@app.post("/api/v1/scrape")
+async def trigger_scrape(request: ScrapeRequest, background_tasks: BackgroundTasks): # <-- ADD request BODY
+    """
+    Triggers the multi-store scraping process as a background task.
+    """
+    
+    # 1. Input validation (FastAPI does this automatically, but a quick check is good)
+    if not request.search_term or len(request.search_term.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Search term cannot be empty.")
+
+    term = request.search_term.strip()
+
+    # 2. Add the synchronous scraping function to the background
+    # Pass the search term from the request body.
+    background_tasks.add_task(run_multi_store_scraper_task, term)
+    
+    # 3. Immediately return 200 OK or 202 Accepted status
+    return {
+        "message": "Multi-store scraping initiated successfully in the background.",
+        "search_term": term,
+        "next_action": "Check the /api/v1/products endpoint shortly for results."
+    }

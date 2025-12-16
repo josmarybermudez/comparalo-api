@@ -26,3 +26,6 @@ class ProductResponse(BaseModel):
     """Response model for products endpoint"""
     products: list[Product]
     count: int
+
+class ScrapeRequest(BaseModel):
+    search_term: str
